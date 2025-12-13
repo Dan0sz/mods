@@ -35,7 +35,7 @@ class Plugin {
 
 		// EDD EU VAT
 		add_filter( 'edd_eu_vat_uk_hide_checkout_input', '__return_true' );
-		add_filter( 'edd_vat_current_eu_vat_rates', [ $this, 'change_gb_to_zero_vat' ] );
+		add_filter( 'edd_eu_countries', [ $this, 'change_gb_to_zero_vat' ] );
 		add_action( 'plugins_loaded', [ $this, 'remove_item_price_filter' ], 21 );
 
 		// Syntax Highlighter
