@@ -33,7 +33,7 @@ class Plugin {
 		add_filter( 'edd_file_download_has_access', [ $this, 'maybe_allow_download' ], 10, 3 );
 		add_filter( 'gettext_edd_sl', [ $this, 'modify_text_fields' ], 1, 3 );
 
-		// EDD EU VAT
+		// Easy Digital Downloads EU VAT handling
 		add_filter( 'edd_eu_vat_uk_hide_checkout_input', '__return_true' );
 		add_filter( 'edd_eu_countries', [ $this, 'change_gb_to_zero_vat' ] );
 		add_action( 'plugins_loaded', [ $this, 'remove_item_price_filter' ], 21 );
