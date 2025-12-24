@@ -46,7 +46,9 @@ class Plugin {
 	}
 
 	/**
-	 * We don't subtract VAT from the price, if VAT is reverse charged. This is a hacky approach to remove @see Checkout_Handler::cart_item_price_includes_tax()
+	 * We don't subtract VAT from the price, if VAT is reverse charged.
+	 *
+	 * This is a hacky approach to remove @see \EDD\Pro\Taxes\VAT\Checkout::maybe_adjust_cart_item_price()
 	 *
 	 * @return void
 	 */
