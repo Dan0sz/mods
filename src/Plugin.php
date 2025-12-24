@@ -53,13 +53,13 @@ class Plugin {
 	public function remove_item_price_filter() {
 		global $wp_filter;
 
-		if ( ! isset( $wp_filter[ 'edd_cart_item_price' ] ) || ! isset( $wp_filter[ 'edd_cart_item_price' ]->callbacks[ 1000 ] ) ) {
+		if ( ! isset( $wp_filter[ 'edd_cart_item_price' ] ) || ! isset( $wp_filter[ 'edd_cart_item_price' ]->callbacks[ 10 ] ) ) {
 			return;
 		}
 
-		foreach ( $wp_filter[ 'edd_cart_item_price' ]->callbacks[ 1000 ] as $key => $callback ) {
-			if ( str_contains( $key, 'cart_item_price_includes_tax' ) ) {
-				unset( $wp_filter[ 'edd_cart_item_price' ]->callbacks[ 1000 ][ $key ] );
+		foreach ( $wp_filter[ 'edd_cart_item_price' ]->callbacks[ 10 ] as $key => $callback ) {
+			if ( str_contains( $key, 'maybe_adjust_cart_item_price' ) ) {
+				unset( $wp_filter[ 'edd_cart_item_price' ]->callbacks[ 10 ][ $key ] );
 			}
 		}
 	}
