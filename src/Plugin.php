@@ -8,8 +8,6 @@
 
 namespace Daan\Mods;
 
-use Barn2\Plugin\EDD_VAT\Checkout_Handler;
-
 class Plugin {
 	/**
 	 * An array of translatable fields, which we want to change.
@@ -146,8 +144,13 @@ class Plugin {
 	 * @return array
 	 */
 	public function change_gb_to_zero_vat( $countries ) {
-		$countries[ 'GB' ] = 0;
-
+		$gb_key = array_search( 'GB', $countries );
+		
+		if ( $gb_key !== false ) {
+			unset( $countries[ $gb_key ] );
+		}
+		
+		
 		return $countries;
 	}
 
