@@ -39,6 +39,9 @@ class Plugin {
 		// Syntax Highlighter
 		add_filter( 'plugins_url', [ $this, 'modify_css_url' ], 1000, 3 );
 		
+		// Yoast SEO
+		add_filter( 'wpseo_json_ld_output', [ $this, 'maybe_disable_schema_output' ] );
+		
 		// Easy Digital Downloads
 		new FormerPrice(); // Product Details Widget
 	}
@@ -115,6 +118,21 @@ class Plugin {
 		$valid_token = edd_validate_url_token( $url );
 		
 		return $valid_token;
+	}
+	
+	/**
+	 * Disable Yoast SEO schema output if conditions are met.
+	 *
+	 * @param $output
+	 *
+	 * @return false|mixed
+	 */
+	public function maybe_disable_schema_output( $output ) {
+		if ( is_page( 'terms-conditions' ) ) {
+			return false;
+		}
+		
+		return $output;
 	}
 	
 	/**
