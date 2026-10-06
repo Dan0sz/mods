@@ -71,20 +71,37 @@
 	function openLoginForm( loginButton, email ) {
 		loginButton.click();
 
+		// EDD loads (and may re-render) the login fields over AJAX, which can take a while: keep pre-filling until
+		// the customer types something themselves, or 15 seconds have passed.
 		const started = Date.now();
+		let focused = false;
+		let typed = false;
+		const markTyped = ( e ) => {
+			if ( e.isTrusted && e.target && e.target.name === 'edd_user_login' ) {
+				typed = true;
+			}
+		};
+		document.addEventListener( 'input', markTyped, true );
 		const timer = setInterval( function () {
 			const username = document.querySelector( 'input[name="edd_user_login"]' );
 			const password = document.querySelector( 'input[name="edd_user_pass"]' );
 
 			if ( username && username.offsetParent !== null ) {
-				clearInterval( timer );
-				if ( email && ! username.value ) {
+				if ( email && ! typed && ! username.value ) {
 					username.value = email;
 				}
-				username.closest( 'fieldset, form, div' ).scrollIntoView( { behavior: 'smooth', block: 'center' } );
-				( password || username ).focus( { preventScroll: true } );
-			} else if ( Date.now() - started > 5000 ) {
+				if ( ! focused ) {
+					focused = true;
+					username.closest( 'fieldset, form, div' ).scrollIntoView( { behavior: 'smooth', block: 'center' } );
+				}
+				if ( password && document.activeElement !== password && ! password.value ) {
+					password.focus( { preventScroll: true } );
+				}
+			}
+
+			if ( typed || Date.now() - started > 15000 ) {
 				clearInterval( timer );
+				document.removeEventListener( 'input', markTyped, true );
 			}
 		}, 100 );
 	}
