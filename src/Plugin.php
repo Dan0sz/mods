@@ -43,6 +43,7 @@ class Plugin {
 		add_filter( 'wpseo_json_ld_output', [ $this, 'maybe_disable_schema_output' ] );
 		
 		// Easy Digital Downloads
+		add_filter( 'render_block_data', [ $this, 'restore_checkout_block_defaults' ] );
 		new FormerPrice(); // Product Details Widget
 	}
 	
@@ -177,6 +178,34 @@ class Plugin {
 		}
 		
 		return $translation;
+	}
+	
+	/**
+	 * EDD 3.7.1 no longer adds the show_register_form, layout and thumbnail_width defaults to the checkout block (when
+	 * it has no inner blocks), which removes the "Log in" button from the checkout and the 25px cart thumbnail width.
+	 * Restore the defaults EDD 3.6 used. Harmless on versions that still set them.
+	 *
+	 * @see \EDD\Blocks\Checkout\checkout()
+	 *
+	 * @param array $block
+	 *
+	 * @return array
+	 */
+	public function restore_checkout_block_defaults( $block ) {
+		if ( ( $block['blockName'] ?? '' ) !== 'edd/checkout' || ! empty( $block['innerBlocks'] ) || ! function_exists( 'edd_get_option' ) ) {
+			return $block;
+		}
+		
+		$block['attrs'] = wp_parse_args(
+			$block['attrs'] ?? [],
+			[
+				'show_register_form' => edd_get_option( 'show_register_form' ),
+				'layout'             => '',
+				'thumbnail_width'    => 25,
+			]
+		);
+		
+		return $block;
 	}
 	
 	/**
