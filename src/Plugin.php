@@ -45,6 +45,7 @@ class Plugin {
 		// Easy Digital Downloads
 		add_filter( 'render_block_data', [ $this, 'restore_checkout_block_defaults' ] );
 		new FormerPrice(); // Product Details Widget
+		new EmailUsedNotice(); // Checkout
 	}
 	
 	/**
