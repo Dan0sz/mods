@@ -23,6 +23,9 @@ class Plugin {
 	}
 	
 	private function init() {
+		// Meta's crawlers on affiliate links. Before anything else: it may end the request.
+		new MetaCrawlerGuard();
+
 		// Core
 		add_filter( 'login_url', [ $this, 'change_login_url' ] );
 		
