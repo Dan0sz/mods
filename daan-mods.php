@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Daan.dev Modifications
  * Description: Random mods for Daan.dev
- * Version: 1.0.7
+ * Version: 1.0.8
  * Author: Daan from Daan.dev
  * Author URI: https://daan.dev
  * GitHub Plugin URI: Dan0sz/daan.dev-mods
