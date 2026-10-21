@@ -46,6 +46,7 @@ class Plugin {
 		add_filter( 'render_block_data', [ $this, 'restore_checkout_block_defaults' ] );
 		new FormerPrice(); // Product Details Widget
 		new EmailUsedNotice(); // Checkout
+		new CheckoutLogin(); // Checkout
 		new LegacyInvoiceLinks(); // Invoice links in emails sent before EDD 3.7.1
 	}
 	
