@@ -20,8 +20,10 @@
 			return;
 		}
 
+		// The legacy checkout can show the login fields next to the email field: then a filled-in email is enough.
 		const loginFields = document.getElementById( 'edd_login_fields' );
-		if ( ! loginFields || ! strings.message ) {
+		const email = document.getElementById( 'edd-email' );
+		if ( ! loginFields || ! strings.message || ( email && email.value.trim() ) ) {
 			return;
 		}
 
