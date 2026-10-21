@@ -62,7 +62,8 @@
 			e.preventDefault();
 			removeNotice();
 
-			const guestButton = document.querySelector( '.edd-blocks__checkout-guest' );
+			// Blocks checkout, or the legacy checkout's "Register or checkout as a guest" link.
+			const guestButton = document.querySelector( '.edd-blocks__checkout-guest, .edd_checkout_register_login[data-action="checkout_register"]' );
 			if ( guestButton ) {
 				guestButton.click();
 			}
