@@ -92,10 +92,10 @@
 		window.jQuery( document ).on( 'wpformsAjaxSubmitSuccess', ( event ) => onSent( event.target ) );
 	}
 
-	// Forms without AJAX reload the page after sending.
-	document.addEventListener( 'submit', ( event ) => {
-		if ( ! event.defaultPrevented && ! event.target.classList.contains( 'wpforms-ajax-form' ) ) {
-			onSent( event.target );
-		}
-	} );
+	// Forms without AJAX reload the page after sending: start over once it shows WPForms' confirmation (and not after a
+	// server-side validation error, which shows the form again).
+	if ( read.size && document.querySelector( '.wpforms-confirmation-container-full, .wpforms-confirmation-container' ) ) {
+		read.clear();
+		save();
+	}
 } )();
