@@ -12,11 +12,10 @@ namespace Daan\Mods;
  * Which suggested docs did a visitor read before contacting me anyway?
  *
  * WP Help Scout Docs' Form Integration suggests docs below the contact form's subject field. When a visitor clicks one
- * (or more) and still sends the form, those articles didn't answer the question. A script:
- * - fills a hidden WPForms field (CSS class daan-docs-clicked) with the clicked articles, so the ticket shows them,
- * - sends a Plausible event per clicked article (once per session), and one per article when the form is sent anyway.
+ * (or more) and still sends the form, those articles didn't answer the question. A script fills a hidden WPForms
+ * field (CSS class daan-docs-clicked) with the clicked articles, so the ticket shows them.
  *
- * Kept out of WP Help Scout Docs itself, because that's sold to people who don't necessarily use Plausible.
+ * Kept out of WP Help Scout Docs itself, because that's sold: this is specific to daan.dev's contact form.
  */
 class DocsReadBeforeContact {
 	/**
@@ -52,8 +51,6 @@ class DocsReadBeforeContact {
 			'daanDocsReadBeforeContact',
 			[
 				'fieldSelector' => '.daan-docs-clicked input[type="hidden"]',
-				'clickEvent'    => 'Docs Suggestion Click',
-				'contactEvent'  => 'Contact After Docs',
 			]
 		);
 	}

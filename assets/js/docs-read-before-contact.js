@@ -1,7 +1,6 @@
 /**
- * Remembers which of WP Help Scout Docs' suggested articles a visitor clicked, fills the contact form's hidden field
- * with them, and tells Plausible: once per article per session on click, and once per article when the form is sent
- * anyway (i.e. the article didn't answer the question).
+ * Remembers which of WP Help Scout Docs' suggested articles a visitor clicked, and fills the contact form's hidden
+ * field with them. If the form is sent anyway, the ticket shows which articles didn't answer the question.
  *
  * @see \Daan\Mods\DocsReadBeforeContact
  */
@@ -45,16 +44,6 @@
 	}
 
 	/**
-	 * @param {string} name
-	 * @param {Object} props
-	 */
-	function track( name, props ) {
-		if ( typeof window.plausible === 'function' ) {
-			window.plausible( name, { props } );
-		}
-	}
-
-	/**
 	 * Clicks and middle clicks (both open the article in a new tab).
 	 *
 	 * @param {MouseEvent} event
@@ -69,14 +58,14 @@
 			return;
 		}
 
-		const title = link.textContent.trim();
-		read.set( link.href, title );
+		read.set( link.href, link.textContent.trim() );
 		save();
 		fillFields();
-		track( config.clickEvent, { article: title } );
 	}
 
 	/**
+	 * Start over after sending, so a next message doesn't list these articles again.
+	 *
 	 * @param {HTMLFormElement} form
 	 */
 	function onSent( form ) {
@@ -84,7 +73,6 @@
 			return;
 		}
 
-		read.forEach( ( title ) => track( config.contactEvent, { article: title } ) );
 		read.clear();
 		save();
 	}
@@ -99,7 +87,7 @@
 	// Articles clicked before a reload.
 	fillFields();
 
-	// AJAX forms: only once WPForms says the form was sent, so a failed validation doesn't count.
+	// AJAX forms: only once WPForms says the form was sent, so the articles are kept after a failed validation.
 	if ( window.jQuery ) {
 		window.jQuery( document ).on( 'wpformsAjaxSubmitSuccess', ( event ) => onSent( event.target ) );
 	}
