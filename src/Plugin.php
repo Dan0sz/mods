@@ -48,6 +48,9 @@ class Plugin {
 		
 		// WP Help Scout Docs
 		new DocsReadBeforeContact(); // Contact form
+		
+		// AffiliateWP
+		new PayAffiliatesThroughLastMonth(); // Payouts > Pay Affiliates
 	}
 	
 	/**
