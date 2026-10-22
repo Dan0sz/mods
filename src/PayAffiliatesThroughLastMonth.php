@@ -37,7 +37,9 @@ class PayAffiliatesThroughLastMonth {
 			'daan-mods-pay-affiliates-through-last-month',
 			'daanPayAffiliatesThroughLastMonth',
 			[
-				'label' => __( 'Quick: all unpaid referrals through last month', 'daan-mods' ),
+				'label'   => __( 'Quick: all unpaid referrals through last month', 'daan-mods' ),
+				// The site's clock, not the browser's: around the turn of the month they can be in different months.
+				'endDate' => current_datetime()->modify( 'last day of previous month' )->format( 'Y-m-d' ),
 			]
 		);
 	}
