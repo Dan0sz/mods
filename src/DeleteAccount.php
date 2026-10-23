@@ -480,9 +480,7 @@ class DeleteAccount {
 		$lines[] = '';
 		$lines[] = 'Invoices in Moneybird and conversations in Help Scout are kept.';
 
-		$subject = $failed ? '[%s] Account deleted, but personal data may remain' : '[%s] Account deleted';
-
-		wp_mail( get_option( 'admin_email' ), sprintf( $subject, wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ), implode( "\n", $lines ) );
+		$this->mail_admin( $failed ? 'Account deleted, but personal data may remain' : 'Account deleted', $lines );
 	}
 
 	/**
@@ -503,7 +501,24 @@ class DeleteAccount {
 			'Subscription IDs: ' . implode( ', ', $subscription_ids ),
 		];
 
-		wp_mail( get_option( 'admin_email' ), sprintf( '[%s] Account not deleted', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ), implode( "\n", $lines ) );
+		$this->mail_admin( 'Account not deleted', $lines );
+	}
+
+	/**
+	 * The account is gone by the time I'm notified, so if the email can't be sent, the report goes to PHP's error log.
+	 *
+	 * @param string   $subject
+	 * @param string[] $lines
+	 *
+	 * @return void
+	 */
+	private function mail_admin( $subject, $lines ) {
+		$subject = sprintf( '[%s] %s', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ), $subject );
+		$message = implode( "\n", $lines );
+
+		if ( ! wp_mail( get_option( 'admin_email' ), $subject, $message ) ) {
+			error_log( 'Daan Mods: couldn\'t email this report. ' . $subject . "\n" . $message ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions
+		}
 	}
 
 	/**
