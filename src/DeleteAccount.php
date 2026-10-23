@@ -109,11 +109,56 @@ class DeleteAccount {
 						</label>
 					</p>
 					<p>
-						<button type="submit" class="button edd-submit"><?php esc_html_e( 'Delete my account', 'daan-mods' ); ?></button>
+						<button type="submit" class="button daan-delete-account-button"><?php esc_html_e( 'Delete my account', 'daan-mods' ); ?></button>
 					</p>
 				</form>
+				<?php $this->print_button_assets(); ?>
 			<?php endif; ?>
 		</div>
+		<?php
+	}
+
+	/**
+	 * A red button, which is only enabled once the checkbox is checked. Without JavaScript, the checkbox's required
+	 * attribute does the same.
+	 *
+	 * @return void
+	 */
+	private function print_button_assets() {
+		?>
+		<style>
+			/* Tailwind's red-600 and red-700: white text on them meets WCAG AA. */
+			.daan-delete-account .daan-delete-account-button {
+				background: oklch(57.7% .245 27.325);
+				border-color: oklch(57.7% .245 27.325);
+				color: #fff;
+			}
+
+			.daan-delete-account .daan-delete-account-button:hover,
+			.daan-delete-account .daan-delete-account-button:focus {
+				background: oklch(50.5% .213 27.518);
+				border-color: oklch(50.5% .213 27.518);
+				color: #fff;
+			}
+
+			.daan-delete-account .daan-delete-account-button:disabled {
+				background: #e5e7eb;
+				border-color: #e5e7eb;
+				color: #6b7280;
+				cursor: not-allowed;
+			}
+		</style>
+		<script>
+			( function () {
+				const form = document.querySelector( '#daan-delete-account form' );
+				const checkbox = form.querySelector( 'input[name="daan_delete_account_confirm"]' );
+				const button = form.querySelector( '.daan-delete-account-button' );
+				const toggle = () => button.disabled = ! checkbox.checked;
+
+				checkbox.addEventListener( 'change', toggle );
+				toggle();
+			} )();
+		</script>
 		<?php
 	}
 
