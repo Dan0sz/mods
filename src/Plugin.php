@@ -45,6 +45,7 @@ class Plugin {
 		// Easy Digital Downloads
 		new FormerPrice(); // Product Details Widget
 		new LegacyInvoiceLinks(); // Invoice links in emails sent before EDD 3.7.1
+		new DeleteAccount(); // Account page
 		
 		// WP Help Scout Docs
 		new DocsReadBeforeContact(); // Contact form
