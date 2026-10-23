@@ -277,9 +277,12 @@ class DeleteAccount {
 
 		$licenses = $this->detach_licenses( $user );
 		$messages = [];
+		$failed   = [];
 
 		foreach ( $emails as $email ) {
-			$messages = array_merge( $messages, $this->erase_personal_data( $email ), $this->delete_brevo_contact( $email ) );
+			$erased   = $this->erase_personal_data( $email );
+			$messages = array_merge( $messages, $erased[ 'messages' ], $this->delete_brevo_contact( $email ) );
+			$failed   = array_merge( $failed, $erased[ 'failed' ] );
 		}
 
 		require_once ABSPATH . 'wp-admin/includes/user.php';
@@ -287,7 +290,8 @@ class DeleteAccount {
 		wp_logout();
 		wp_delete_user( $user->ID );
 
-		$this->notify( $user, $customer, $emails, $subscriptions[ 'cancelled' ], $licenses, $messages );
+		// The account is deleted anyway: by now, its subscriptions are cancelled and its customer may be anonymized.
+		$this->notify( $user, $customer, $emails, $subscriptions[ 'cancelled' ], $licenses, $messages, $failed );
 
 		wp_safe_redirect( add_query_arg( self::DELETED, 1, get_permalink() ?: home_url( '/account/' ) ) );
 		exit;
@@ -331,35 +335,48 @@ class DeleteAccount {
 	 *
 	 * @param string $email
 	 *
-	 * @return string[] Their messages, e.g. what wasn't erased and why.
+	 * @return array{messages: string[], failed: string[]} Their messages (e.g. what was kept and why), and the erasers
+	 *                                                    which failed or didn't finish, so personal data may remain.
 	 */
 	private function erase_personal_data( $email ) {
 		$messages = [];
+		$failed   = [];
 
 		foreach ( apply_filters( 'wp_privacy_personal_data_erasers', [] ) as $eraser ) {
 			if ( ! is_callable( $eraser[ 'callback' ] ?? null ) ) {
 				continue;
 			}
 
+			$name = $eraser[ 'eraser_friendly_name' ] ?? '';
+			$done = false;
+
 			// Erasers work in pages, until they're done.
 			for ( $page = 1; $page <= 100; $page ++ ) {
 				$response = call_user_func( $eraser[ 'callback' ], $email, $page );
 
-				if ( ! is_array( $response ) ) {
-					break;
+				if ( ! is_array( $response ) || ! is_array( $response[ 'messages' ] ?? [] ) ) {
+					$failed[] = $name . ': ' . ( is_wp_error( $response ) ? $response->get_error_message() : 'invalid response' );
+
+					continue 2;
 				}
 
 				foreach ( $response[ 'messages' ] ?? [] as $message ) {
-					$messages[] = ( $eraser[ 'eraser_friendly_name' ] ?? '' ) . ': ' . $message;
+					$messages[] = $name . ': ' . $message;
 				}
 
 				if ( ! empty( $response[ 'done' ] ) ) {
+					$done = true;
+
 					break;
 				}
 			}
+
+			if ( ! $done ) {
+				$failed[] = $name . ': not finished after 100 pages';
+			}
 		}
 
-		return $messages;
+		return [ 'messages' => $messages, 'failed' => $failed ];
 	}
 
 	/**
@@ -426,10 +443,11 @@ class DeleteAccount {
 	 * @param int                $subscriptions
 	 * @param string[]           $licenses
 	 * @param string[]           $messages
+	 * @param string[]           $failed   Erasers which failed: their personal data may remain.
 	 *
 	 * @return void
 	 */
-	private function notify( $user, $customer, $emails, $subscriptions, $licenses, $messages ) {
+	private function notify( $user, $customer, $emails, $subscriptions, $licenses, $messages, $failed ) {
 		$lines = [
 			sprintf( 'A customer deleted their account on %s.', home_url() ),
 			'',
@@ -440,6 +458,15 @@ class DeleteAccount {
 			'Subscriptions cancelled: ' . $subscriptions,
 			'License keys detached: ' . ( $licenses ? implode( ', ', $licenses ) : '-' ),
 		];
+
+		if ( $failed ) {
+			$lines[] = '';
+			$lines[] = 'These erasers FAILED, so personal data may remain (Tools > Erase Personal Data):';
+
+			foreach ( $failed as $failure ) {
+				$lines[] = '- ' . $failure;
+			}
+		}
 
 		if ( $messages ) {
 			$lines[] = '';
@@ -453,7 +480,9 @@ class DeleteAccount {
 		$lines[] = '';
 		$lines[] = 'Invoices in Moneybird and conversations in Help Scout are kept.';
 
-		wp_mail( get_option( 'admin_email' ), sprintf( '[%s] Account deleted', wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ), implode( "\n", $lines ) );
+		$subject = $failed ? '[%s] Account deleted, but personal data may remain' : '[%s] Account deleted';
+
+		wp_mail( get_option( 'admin_email' ), sprintf( $subject, wp_specialchars_decode( get_bloginfo( 'name' ), ENT_QUOTES ) ), implode( "\n", $lines ) );
 	}
 
 	/**
