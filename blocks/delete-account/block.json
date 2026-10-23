@@ -1,0 +1,65 @@
+{
+	"$schema": "https://schemas.wp.org/trunk/block.json",
+	"apiVersion": 3,
+	"name": "daan/delete-account",
+	"title": "Delete Account",
+	"category": "widgets",
+	"icon": "trash",
+	"description": "Lets logged-in customers delete their own account. Shown only to customers, below e.g. the profile editor on the Account page.",
+	"textdomain": "daan-mods",
+	"attributes": {
+		"accountText": {
+			"type": "string",
+			"default": "Your account, name, email address and billing address will be deleted."
+		},
+		"ordersText": {
+			"type": "string",
+			"default": "Your orders will be anonymized. What was bought, when, for how much and in which country is kept, because the tax administration requires it. For the same reason, invoices are kept for seven years."
+		},
+		"subscriptionsText": {
+			"type": "string",
+			"default": "Your active subscriptions will be cancelled. You won't be charged again."
+		},
+		"licensesText": {
+			"type": "string",
+			"default": "Your license keys will keep working until they expire, and can still be renewed with the license key at checkout. You won't get renewal reminders anymore, so save your license keys first."
+		},
+		"newsletterText": {
+			"type": "string",
+			"default": "You're removed from any newsletters you might be subscribed to."
+		},
+		"confirmLabel": {
+			"type": "string",
+			"default": "I understand that my account will be deleted, and that this can't be undone."
+		},
+		"buttonText": {
+			"type": "string",
+			"default": "Delete my account"
+		}
+	},
+	"supports": {
+		"html": false,
+		"multiple": false,
+		"color": {
+			"background": true,
+			"text": true,
+			"link": true
+		},
+		"spacing": {
+			"margin": true,
+			"padding": true
+		},
+		"__experimentalBorder": {
+			"color": true,
+			"radius": true,
+			"style": true,
+			"width": true
+		},
+		"typography": {
+			"fontSize": true
+		}
+	},
+	"editorScript": "file:./index.js",
+	"style": "file:./style.css",
+	"viewScript": "file:./view.js"
+}

@@ -1,0 +1,27 @@
+/* Tailwind's red-600 and red-700: white text on them meets WCAG AA. */
+.wp-block-daan-delete-account .daan-delete-account-button {
+	background: oklch(57.7% .245 27.325);
+	border-color: oklch(57.7% .245 27.325);
+	color: #fff;
+}
+
+.wp-block-daan-delete-account .daan-delete-account-button:hover,
+.wp-block-daan-delete-account .daan-delete-account-button:focus {
+	background: oklch(50.5% .213 27.518);
+	border-color: oklch(50.5% .213 27.518);
+	color: #fff;
+}
+
+.wp-block-daan-delete-account .daan-delete-account-button:disabled {
+	background: #e5e7eb;
+	border-color: #e5e7eb;
+	color: #6b7280;
+	cursor: not-allowed;
+}
+
+/* The editor doesn't load the theme's button styles. */
+.editor-styles-wrapper .wp-block-daan-delete-account .daan-delete-account-button {
+	display: inline-block;
+	padding: .5em 1em;
+	border-radius: 8px;
+}

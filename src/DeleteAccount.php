@@ -9,7 +9,8 @@
 namespace Daan\Mods;
 
 /**
- * Lets customers delete their own account (GDPR's right to erasure), below the profile editor on the Account page.
+ * Lets customers delete their own account (GDPR's right to erasure), with the Delete Account block (e.g. below the
+ * profile editor on the Account page). Its heading, introduction and texts are edited in the block editor.
  *
  * Uses WordPress' personal data erasers, which Easy Digital Downloads and its add-ons hook into:
  * - The customer is anonymized and their addresses and email logs are removed.
@@ -26,7 +27,7 @@ namespace Daan\Mods;
  * - The contact is deleted from Brevo.
  * - The WordPress user is deleted, and I'm notified by email (e.g. for invoices in Moneybird, which are kept).
  *
- * Not available to affiliates and staff: those ask me.
+ * Only available to customers (see self::CUSTOMER_ROLES), not to staff or affiliates: those ask me.
  */
 class DeleteAccount {
 	/**
@@ -45,6 +46,21 @@ class DeleteAccount {
 	const FAILED = 'account-not-deleted';
 
 	/**
+	 * The block's ID, e.g. to return to it after a failed attempt.
+	 */
+	const ID = 'daan-delete-account';
+
+	/**
+	 * Replaced with the site's name in the block's texts.
+	 */
+	const SITE_NAME = '{site_name}';
+
+	/**
+	 * Only users with no other roles than these can delete their own account. Staff (e.g. shop workers) ask me.
+	 */
+	const CUSTOMER_ROLES = [ 'subscriber', 'edd_subscriber', 'customer' ];
+
+	/**
 	 * Brevo for EDD's API key, in EDD's settings.
 	 */
 	const BREVO_API_KEY = 'edd_brevo_api_key';
@@ -53,21 +69,35 @@ class DeleteAccount {
 	 * Build class.
 	 */
 	public function __construct() {
-		add_action( 'edd_profile_editor_after', [ $this, 'render' ] );
-		add_action( 'edd_profile_editor_logged_out', [ $this, 'render_deleted' ] );
+		add_action( 'init', [ $this, 'register_block' ] );
 		add_action( 'template_redirect', [ $this, 'maybe_delete' ] );
 	}
 
 	/**
-	 * Below the profile editor: what deleting the account does, and the form to do it.
-	 *
 	 * @return void
 	 */
-	public function render() {
+	public function register_block() {
+		register_block_type( dirname( __DIR__ ) . '/blocks/delete-account', [ 'render_callback' => [ $this, 'render' ] ] );
+	}
+
+	/**
+	 * The block: its heading and introduction (inner blocks), what deleting the account does, and the form to do it.
+	 *
+	 * @param array  $attributes The texts edited in the block editor.
+	 * @param string $content    The inner blocks.
+	 *
+	 * @return string
+	 */
+	public function render( $attributes, $content ) {
 		$user = wp_get_current_user();
 
-		if ( ! $user->exists() || user_can( $user, 'edit_posts' ) ) {
-			return;
+		// After deleting their account, the visitor is logged out and returns to this page.
+		if ( ! $user->exists() ) {
+			return isset( $_GET[ self::DELETED ] ) ? $this->wrap( '<div class="edd-alert edd-alert-success"><p>' . esc_html__( 'Your account has been deleted.', 'daan-mods' ) . '</p></div>' ) : '';
+		}
+
+		if ( ! $this->is_customer( $user ) ) {
+			return '';
 		}
 
 		$blocked = $this->get_blocked_reason( $user );
@@ -75,107 +105,67 @@ class DeleteAccount {
 		if ( isset( $_GET[ self::FAILED ] ) ) {
 			$blocked = __( 'Something went wrong while cancelling your subscription, so your account wasn\'t deleted. I\'ve been notified.', 'daan-mods' );
 		}
-		?>
-		<div id="daan-delete-account" class="daan-delete-account">
-			<h3><?php esc_html_e( 'Delete account', 'daan-mods' ); ?></h3>
-			<?php if ( $blocked ) : ?>
+
+		ob_start();
+
+		if ( $blocked ) :
+			?>
+			<p>
+				<?php
+				echo wp_kses(
+					sprintf(
+						/* translators: 1: why the account can't be deleted, 2: contact page URL. */
+						__( '%1$s To delete your account, please <a href="%2$s">contact me</a>.', 'daan-mods' ),
+						esc_html( $blocked ),
+						esc_url( home_url( '/contact/' ) )
+					),
+					[ 'a' => [ 'href' => [] ] ]
+				);
+				?>
+			</p>
+		<?php else : ?>
+			<ul>
+				<?php foreach ( $this->get_consequences( $user, $attributes ) as $consequence ) : ?>
+					<li><?php echo wp_kses_post( $consequence ); ?></li>
+				<?php endforeach; ?>
+			</ul>
+			<form method="post" action="<?php echo esc_url( edd_get_current_page_url() ); ?>">
+				<?php wp_nonce_field( self::ACTION ); ?>
+				<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
 				<p>
-					<?php
-					echo wp_kses(
-						sprintf(
-							/* translators: 1: why the account can't be deleted, 2: contact page URL. */
-							__( '%1$s To delete your account, please <a href="%2$s">contact me</a>.', 'daan-mods' ),
-							esc_html( $blocked ),
-							esc_url( home_url( '/contact/' ) )
-						),
-						[ 'a' => [ 'href' => [] ] ]
-					);
-					?>
+					<label>
+						<input type="checkbox" name="daan_delete_account_confirm" value="1" required>
+						<?php echo wp_kses_post( $attributes[ 'confirmLabel' ] ?? '' ); ?>
+					</label>
 				</p>
-			<?php else : ?>
-				<p><?php esc_html_e( 'Deleting your account removes your personal data from Daan.dev. This can\'t be undone.', 'daan-mods' ); ?></p>
-				<ul>
-					<?php foreach ( $this->get_consequences( $user ) as $consequence ) : ?>
-						<li><?php echo esc_html( $consequence ); ?></li>
-					<?php endforeach; ?>
-				</ul>
-				<form method="post" action="<?php echo esc_url( edd_get_current_page_url() ); ?>">
-					<?php wp_nonce_field( self::ACTION ); ?>
-					<input type="hidden" name="action" value="<?php echo esc_attr( self::ACTION ); ?>">
-					<p>
-						<label>
-							<input type="checkbox" name="daan_delete_account_confirm" value="1" required>
-							<?php esc_html_e( 'I understand that my account will be deleted, and that this can\'t be undone.', 'daan-mods' ); ?>
-						</label>
-					</p>
-					<p>
-						<button type="submit" class="button daan-delete-account-button"><?php esc_html_e( 'Delete my account', 'daan-mods' ); ?></button>
-					</p>
-				</form>
-				<?php $this->print_button_assets(); ?>
-			<?php endif; ?>
-		</div>
-		<?php
+				<p>
+					<button type="submit" class="button daan-delete-account-button"><?php echo wp_kses_post( $attributes[ 'buttonText' ] ?? '' ); ?></button>
+				</p>
+			</form>
+			<?php
+		endif;
+
+		return $this->wrap( str_replace( self::SITE_NAME, esc_html( get_bloginfo( 'name' ) ), $content . ob_get_clean() ) );
 	}
 
 	/**
-	 * A red button, which is only enabled once the checkbox is checked. Without JavaScript, the checkbox's required
-	 * attribute does the same.
+	 * The block's wrapper, with its border, colors and spacing.
 	 *
-	 * @return void
+	 * @param string $html
+	 *
+	 * @return string
 	 */
-	private function print_button_assets() {
-		?>
-		<style>
-			/* Tailwind's red-600 and red-700: white text on them meets WCAG AA. */
-			.daan-delete-account .daan-delete-account-button {
-				background: oklch(57.7% .245 27.325);
-				border-color: oklch(57.7% .245 27.325);
-				color: #fff;
-			}
-
-			.daan-delete-account .daan-delete-account-button:hover,
-			.daan-delete-account .daan-delete-account-button:focus {
-				background: oklch(50.5% .213 27.518);
-				border-color: oklch(50.5% .213 27.518);
-				color: #fff;
-			}
-
-			.daan-delete-account .daan-delete-account-button:disabled {
-				background: #e5e7eb;
-				border-color: #e5e7eb;
-				color: #6b7280;
-				cursor: not-allowed;
-			}
-		</style>
-		<script>
-			( function () {
-				const form = document.querySelector( '#daan-delete-account form' );
-				const checkbox = form.querySelector( 'input[name="daan_delete_account_confirm"]' );
-				const button = form.querySelector( '.daan-delete-account-button' );
-				const toggle = () => button.disabled = ! checkbox.checked;
-
-				checkbox.addEventListener( 'change', toggle );
-				toggle();
-			} )();
-		</script>
-		<?php
+	private function wrap( $html ) {
+		return sprintf( '<div %s>%s</div>', get_block_wrapper_attributes( [ 'id' => self::ID ] ), $html );
 	}
 
 	/**
-	 * After deleting their account, the visitor is logged out and returns to the Account page.
+	 * @param \WP_User $user
 	 *
-	 * @return void
+	 * @return bool Whether the user is only a customer, and not staff.
 	 */
-	public function render_deleted() {
-		if ( ! isset( $_GET[ self::DELETED ] ) ) {
-			return;
-		}
-		?>
-		<div class="edd-alert edd-alert-success">
-			<p><?php esc_html_e( 'Your account has been deleted.', 'daan-mods' ); ?></p>
-		</div>
-		<?php
+	private function is_customer( $user ) {
+		return $user->roles && ! array_diff( $user->roles, self::CUSTOMER_ROLES ) && ! is_super_admin( $user->ID );
 	}
 
 	/**
@@ -208,40 +198,27 @@ class DeleteAccount {
 	}
 
 	/**
-	 * What deleting this account does.
+	 * What deleting this account does: the block's texts which apply to this customer.
 	 *
 	 * @param \WP_User $user
+	 * @param array    $attributes
 	 *
 	 * @return string[]
 	 */
-	private function get_consequences( $user ) {
-		$consequences = [
-			__( 'Your account, name, email address and billing address will be deleted.', 'daan-mods' ),
-			__( 'Your orders will be anonymized. What was bought, when, for how much and in which country is kept, because the tax administration requires it. For the same reason, invoices are kept for seven years.', 'daan-mods' ),
-		];
+	private function get_consequences( $user, $attributes ) {
+		$texts = [ 'accountText', 'ordersText' ];
 
-		$subscriptions = count( $this->get_active_subscriptions( $user ) );
-
-		if ( $subscriptions ) {
-			$consequences[] = sprintf(
-				/* translators: %d: number of subscriptions. */
-				_n(
-					'Your active subscription will be cancelled. You won\'t be charged again.',
-					'Your %d active subscriptions will be cancelled. You won\'t be charged again.',
-					$subscriptions,
-					'daan-mods'
-				),
-				$subscriptions
-			);
+		if ( $this->get_active_subscriptions( $user ) ) {
+			$texts[] = 'subscriptionsText';
 		}
 
 		if ( $this->get_licenses( $user ) ) {
-			$consequences[] = __( 'Your license keys will keep working until they expire, and can still be renewed with the license key at checkout. You won\'t get renewal reminders anymore, so save your license keys first.', 'daan-mods' );
+			$texts[] = 'licensesText';
 		}
 
-		$consequences[] = __( 'You\'re removed from any newsletters you might be subscribed to.', 'daan-mods' );
+		$texts[] = 'newsletterText';
 
-		return $consequences;
+		return array_filter( array_map( fn( $text ) => $attributes[ $text ] ?? '', $texts ) );
 	}
 
 	/**
@@ -258,7 +235,7 @@ class DeleteAccount {
 
 		$user = wp_get_current_user();
 
-		if ( user_can( $user, 'edit_posts' ) || $this->get_blocked_reason( $user ) || empty( $_POST[ 'daan_delete_account_confirm' ] ) ) {
+		if ( ! $this->is_customer( $user ) || $this->get_blocked_reason( $user ) || empty( $_POST[ 'daan_delete_account_confirm' ] ) ) {
 			wp_safe_redirect( edd_get_current_page_url() );
 			exit;
 		}
@@ -271,7 +248,7 @@ class DeleteAccount {
 		if ( $subscriptions[ 'failed' ] ) {
 			$this->notify_failed( $user, $emails, $subscriptions[ 'failed' ] );
 
-			wp_safe_redirect( add_query_arg( self::FAILED, 1, edd_get_current_page_url() ) . '#daan-delete-account' );
+			wp_safe_redirect( add_query_arg( self::FAILED, 1, edd_get_current_page_url() ) . '#' . self::ID );
 			exit;
 		}
 
