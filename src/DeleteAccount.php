@@ -13,7 +13,7 @@ namespace Daan\Mods;
  *
  * Uses WordPress' personal data erasers, which Easy Digital Downloads and its add-ons hook into:
  * - The customer is anonymized and their addresses and email logs are removed.
- * - Orders are anonymized (or deleted), depending on Downloads > Settings > Misc > Privacy > Payment Status Actions.
+ * - Orders are anonymized (or deleted), depending on Downloads > Settings > Policies > Privacy > Order Statuses.
  *   What was bought, when, for how much and in which country is kept, for the tax administration.
  * - Reviews, comments and AffiliateWP's customer records are anonymized.
  *
