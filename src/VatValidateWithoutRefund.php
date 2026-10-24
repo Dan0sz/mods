@@ -10,6 +10,7 @@ namespace Daan\Mods;
 
 use EDD\Pro\Taxes\VAT\Order as VAT;
 use EDD\Pro\Taxes\VAT\PendingValidation;
+use EDD\Pro\Taxes\VAT\Utility;
 use EDD\Pro\Taxes\VAT\Validator;
 
 /**
@@ -19,6 +20,9 @@ use EDD\Pro\Taxes\VAT\Validator;
  *
  * EDD's button always refunds, whatever "Auto-Refund Tax on Delayed Validation" is set to. Its automatic retries do
  * respect that setting, so this runs EDD's own retry with the setting off.
+ *
+ * EDD only shows the button for orders in its delayed validation (since EDD 3.7.0). This also shows it for older orders
+ * which still have tax charged, while their VAT number should have been reverse charged.
  */
 class VatValidateWithoutRefund {
 	/**
@@ -32,12 +36,19 @@ class VatValidateWithoutRefund {
 	const NONCE = 'edd_vat_validate_review';
 	
 	/**
+	 * EDD's description of the button.
+	 */
+	const DESCRIPTION = 'Re-checks the VAT number with the validation service. If it is valid and the reverse charge applies, the tax is refunded through the payment gateway.';
+	
+	/**
 	 * Build class.
 	 */
 	public function __construct() {
 		// Before EDD's own handler (priority 10), which then never runs.
 		add_action( 'wp_ajax_' . self::ACTION, [ $this, 'validate' ], 9 );
 		add_filter( 'gettext_easy-digital-downloads', [ $this, 'change_texts' ], 10, 2 );
+		// After EDD Pro's VAT section (priority 10).
+		add_filter( 'edd_get_order_details_sections', [ $this, 'add_button' ], 20 );
 	}
 	
 	/**
@@ -225,6 +236,78 @@ class VatValidateWithoutRefund {
 	}
 	
 	/**
+	 * Adds the button to the VAT section, for orders EDD doesn't show it for.
+	 *
+	 * @param array $sections
+	 *
+	 * @return array
+	 */
+	public function add_button( $sections ) {
+		foreach ( $sections as &$section ) {
+			if ( ( $section[ 'id' ] ?? '' ) !== 'vat' || ! is_callable( $section[ 'callback' ] ?? null ) ) {
+				continue;
+			}
+			
+			$callback              = $section[ 'callback' ];
+			$section[ 'callback' ] = function ( $order ) use ( $callback ) {
+				ob_start();
+				call_user_func( $callback, $order );
+				$html   = ob_get_clean();
+				$button = $this->needs_button( $order ) ? $this->get_button( $order ) : '';
+				// Above the Location Evidence, where EDD shows it.
+				$pos = strpos( $html, '<h4>' );
+				
+				echo $pos === false ? $html . $button : substr_replace( $html, $button, $pos, 0 ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+			};
+		}
+		
+		return $sections;
+	}
+	
+	/**
+	 * Orders which never entered EDD's delayed validation, e.g. from before EDD 3.7.0, but still have tax charged, while
+	 * their VAT number might be reverse charged.
+	 *
+	 * @param \EDD\Orders\Order $order
+	 *
+	 * @return bool
+	 */
+	private function needs_button( $order ) {
+		if ( ! class_exists( Utility::class ) || ! $order || ! (float) $order->tax || ! Utility::is_paid_order( $order ) ) {
+			return false;
+		}
+		
+		// EDD shows its own button, or the order was resolved.
+		if ( edd_get_order_meta( $order->id, VAT::META_VALIDATION_STATUS, true ) ) {
+			return false;
+		}
+		
+		return edd_get_order_meta( $order->id, '_edd_payment_vat_number', true ) && Utility::can_reverse_charge_vat( $order->get_address()->country );
+	}
+	
+	/**
+	 * EDD's button: its script sends it to self::validate().
+	 *
+	 * @param \EDD\Orders\Order $order
+	 *
+	 * @return string
+	 */
+	private function get_button( $order ) {
+		ob_start();
+		?>
+		<div class="edd-form-group edd-order-details__vat-validation">
+			<button type="button" class="button button-secondary edd-vat-validate-apply" data-order-id="<?php echo esc_attr( $order->id ); ?>">
+				<?php echo esc_html( $this->change_texts( '', 'Validate & Apply Reverse Charge' ) ); ?>
+			</button>
+			<p class="description">
+				<?php echo esc_html( $this->change_texts( '', self::DESCRIPTION ) ); ?>
+			</p>
+		</div>
+		<?php
+		return ob_get_clean();
+	}
+	
+	/**
 	 * Describe what the button does now.
 	 *
 	 * @param string $translation
@@ -237,7 +320,7 @@ class VatValidateWithoutRefund {
 			return 'Validate & Apply Reverse Charge (no refund)';
 		}
 		
-		if ( $text === 'Re-checks the VAT number with the validation service. If it is valid and the reverse charge applies, the tax is refunded through the payment gateway.' ) {
+		if ( $text === self::DESCRIPTION ) {
 			return 'Re-checks the VAT number with the validation service. If it is valid and the reverse charge applies, the order is marked as reverse charged. The tax isn\'t refunded: refund it manually, if needed.';
 		}
 		
