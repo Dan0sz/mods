@@ -64,8 +64,17 @@ class VatValidateWithoutRefund {
 			wp_send_json_error( [ 'message' => __( 'Invalid order.', 'easy-digital-downloads' ) ] );
 		}
 		
+		// E.g. by EDD's automatic retries, which only mark the order as reverse charged.
 		if ( edd_get_order_meta( $order_id, VAT::META_VALIDATION_STATUS, true ) === VAT::STATUS_VALIDATED ) {
-			wp_send_json_error( [ 'message' => 'This VAT number was already validated. Refund the tax manually, if needed.' ] );
+			if ( ! edd_get_order_meta( $order_id, '_edd_payment_vat_reverse_charged', true ) ) {
+				wp_send_json_error( [ 'message' => 'This VAT number was already validated, but the reverse charge doesn\'t apply for this order. Tax remains charged.' ] );
+			}
+			
+			if ( ! (float) $order->tax ) {
+				wp_send_json_error( [ 'message' => 'This VAT number was already validated and the reverse charge applied. There\'s nothing left to change.' ] );
+			}
+			
+			$this->send_reverse_charged( $order, 'VAT number was already validated.' );
 		}
 		
 		$vat_number = edd_get_order_meta( $order_id, '_edd_payment_vat_number', true );
@@ -99,13 +108,7 @@ class VatValidateWithoutRefund {
 		}
 		
 		if ( $status === VAT::STATUS_VALIDATED && edd_get_order_meta( $order_id, '_edd_payment_vat_reverse_charged', true ) ) {
-			$moved = $this->move_tax_to_subtotal( $order );
-			
-			if ( is_wp_error( $moved ) ) {
-				wp_send_json_success( [ 'message' => 'VAT number validated and reverse charge applied. ' . $moved->get_error_message() . ' So its tax wasn\'t changed: correct it manually.', 'reload' => true ] );
-			}
-			
-			wp_send_json_success( [ 'message' => 'VAT number validated and reverse charge applied. The tax is now part of the subtotal, so the total didn\'t change.', 'reload' => true ] );
+			$this->send_reverse_charged( $order, 'VAT number validated.' );
 		}
 		
 		if ( $status === VAT::STATUS_VALIDATED ) {
@@ -118,6 +121,24 @@ class VatValidateWithoutRefund {
 		
 		// E.g. the service became unavailable after all, or the order isn't paid.
 		wp_send_json_error( [ 'message' => 'The VAT number couldn\'t be validated. Check the order notes.', 'reload' => true ] );
+	}
+	
+	/**
+	 * Moves the tax into the subtotal and tells the admin.
+	 *
+	 * @param \EDD\Orders\Order $order
+	 * @param string            $validated What happened to the VAT number.
+	 *
+	 * @return void
+	 */
+	private function send_reverse_charged( $order, $validated ) {
+		$moved = $this->move_tax_to_subtotal( $order );
+		
+		if ( is_wp_error( $moved ) ) {
+			wp_send_json_success( [ 'message' => $validated . ' Reverse charge applied. ' . $moved->get_error_message() . ' So its tax wasn\'t changed: correct it manually.', 'reload' => true ] );
+		}
+		
+		wp_send_json_success( [ 'message' => $validated . ' Reverse charge applied. The tax is now part of the subtotal, so the total didn\'t change.', 'reload' => true ] );
 	}
 	
 	/**
