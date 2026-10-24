@@ -99,7 +99,11 @@ class VatValidateWithoutRefund {
 		}
 		
 		if ( $status === VAT::STATUS_VALIDATED && edd_get_order_meta( $order_id, '_edd_payment_vat_reverse_charged', true ) ) {
-			wp_send_json_success( [ 'message' => 'VAT number validated and reverse charge applied. The tax wasn\'t refunded: refund it manually, if needed.', 'reload' => true ] );
+			if ( ! $this->move_tax_to_subtotal( $order ) ) {
+				wp_send_json_success( [ 'message' => 'VAT number validated and reverse charge applied. This order has refunds, so its tax wasn\'t changed: correct it manually.', 'reload' => true ] );
+			}
+			
+			wp_send_json_success( [ 'message' => 'VAT number validated and reverse charge applied. The tax is now part of the subtotal, so the total didn\'t change.', 'reload' => true ] );
 		}
 		
 		if ( $status === VAT::STATUS_VALIDATED ) {
@@ -112,6 +116,56 @@ class VatValidateWithoutRefund {
 		
 		// E.g. the service became unavailable after all, or the order isn't paid.
 		wp_send_json_error( [ 'message' => 'The VAT number couldn\'t be validated. Check the order notes.', 'reload' => true ] );
+	}
+	
+	/**
+	 * Makes the order look like it was reverse charged at checkout: the total stays the same, because the advertised
+	 * price includes VAT (Plugin::remove_item_price_filter()). So the tax becomes part of the subtotal, of the order,
+	 * its items and their adjustments (e.g. the one-time discount, a negative fee).
+	 *
+	 * @param \EDD\Orders\Order $order
+	 *
+	 * @return bool False if the order has refunds, which would no longer add up.
+	 */
+	private function move_tax_to_subtotal( $order ) {
+		if ( edd_get_orders( [ 'parent' => $order->id, 'type' => 'refund', 'number' => 1 ] ) ) {
+			return false;
+		}
+		
+		foreach ( $order->get_items() as $item ) {
+			foreach ( $item->get_fees() as $fee ) {
+				$this->move_tax( 'edd_update_order_adjustment', $fee );
+			}
+			
+			$this->move_tax( 'edd_update_order_item', $item );
+		}
+		
+		foreach ( $order->get_fees() as $fee ) {
+			// Order fees also include the items' fees.
+			if ( $fee->object_type === 'order' ) {
+				$this->move_tax( 'edd_update_order_adjustment', $fee );
+			}
+		}
+		
+		$this->move_tax( 'edd_update_order', $order );
+		
+		edd_insert_payment_note( $order->id, sprintf( 'VAT reverse charged after a delayed check: the tax (%s) is now part of the subtotal. The total didn\'t change.', edd_currency_filter( edd_format_amount( $order->tax ), $order->currency ) ) );
+		
+		return true;
+	}
+	
+	/**
+	 * @param callable $update E.g. edd_update_order_item().
+	 * @param object   $object An order, order item or order adjustment.
+	 *
+	 * @return void
+	 */
+	private function move_tax( $update, $object ) {
+		if ( ! (float) $object->tax ) {
+			return;
+		}
+		
+		$update( $object->id, [ 'subtotal' => (float) $object->subtotal + (float) $object->tax, 'tax' => 0 ] );
 	}
 	
 	/**
