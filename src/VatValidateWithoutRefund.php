@@ -138,7 +138,7 @@ class VatValidateWithoutRefund {
 			wp_send_json_success( [ 'message' => $validated . ' Reverse charge applied. ' . $moved->get_error_message() . ' So its tax wasn\'t changed: correct it manually.', 'reload' => true ] );
 		}
 		
-		wp_send_json_success( [ 'message' => $validated . ' Reverse charge applied. The tax is now part of the subtotal, so the total didn\'t change.', 'reload' => true ] );
+		wp_send_json_success( [ 'message' => $validated . ' Reverse charge applied.', 'reload' => true ] );
 	}
 	
 	/**
