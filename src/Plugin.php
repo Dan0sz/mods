@@ -46,6 +46,7 @@ class Plugin {
 		new FormerPrice(); // Product Details Widget
 		new LegacyInvoiceLinks(); // Invoice links in emails sent before EDD 3.7.1
 		new VatValidateWithoutRefund(); // Orders > Edit Order > VAT
+		new SubscriptionPaymentMethod(); // Emails > Insert Conditional Tag
 		
 		// WP Help Scout Docs
 		new DocsReadBeforeContact(); // Contact form
